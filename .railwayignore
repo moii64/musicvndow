@@ -1,6 +1,0 @@
-node_modules/
-downloads/
-uploads/
-.git/
-*.log
-.env
