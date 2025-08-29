@@ -38,7 +38,12 @@ app.post('/api/download', async (req, res) => {
     }
 
     try {
+        // Tạo thư mục downloads nếu chưa có
         const downloadPath = './downloads';
+        if (!fs.existsSync(downloadPath)) {
+            fs.mkdirSync(downloadPath, { recursive: true });
+        }
+
         const outputTemplate = path.join(downloadPath, '%(title)s.%(ext)s');
         
         const ytdlp = spawn('yt-dlp', [
@@ -66,10 +71,43 @@ app.post('/api/download', async (req, res) => {
 
         ytdlp.on('close', (code) => {
             if (code === 0) {
-                res.json({ 
-                    success: true, 
-                    message: 'Download thành công',
-                    output: output 
+                // Tìm file vừa download
+                fs.readdir(downloadPath, (err, files) => {
+                    if (err) {
+                        return res.status(500).json({ 
+                            success: false, 
+                            error: 'Không thể đọc thư mục downloads' 
+                        });
+                    }
+
+                    // Tìm file mới nhất
+                    const audioFiles = files.filter(file => 
+                        file.endsWith('.mp3') || file.endsWith('.mp4') || file.endsWith('.wav')
+                    );
+
+                    if (audioFiles.length > 0) {
+                        const latestFile = audioFiles[audioFiles.length - 1];
+                        const filePath = path.join(downloadPath, latestFile);
+                        const stats = fs.statSync(filePath);
+                        
+                        res.json({ 
+                            success: true, 
+                            message: 'Download thành công',
+                            file: {
+                                name: latestFile,
+                                size: stats.size,
+                                url: `/downloads/${encodeURIComponent(latestFile)}`,
+                                downloadUrl: `${req.protocol}://${req.get('host')}/downloads/${encodeURIComponent(latestFile)}`
+                            },
+                            output: output 
+                        });
+                    } else {
+                        res.json({ 
+                            success: true, 
+                            message: 'Download thành công nhưng không tìm thấy file',
+                            output: output 
+                        });
+                    }
                 });
             } else {
                 res.status(500).json({ 
@@ -119,7 +157,8 @@ app.get('/api/files', (req, res) => {
                             name: file,
                             size: stats.size,
                             date: stats.mtime,
-                            url: `/downloads/${encodeURIComponent(file)}`
+                            url: `/downloads/${encodeURIComponent(file)}`,
+                            downloadUrl: `${req.protocol}://${req.get('host')}/downloads/${encodeURIComponent(file)}`
                         };
                     } catch (statErr) {
                         console.error('Error getting file stats for:', file, statErr);
@@ -127,7 +166,8 @@ app.get('/api/files', (req, res) => {
                             name: file,
                             size: 0,
                             date: new Date(),
-                            url: `/downloads/${encodeURIComponent(file)}`
+                            url: `/downloads/${encodeURIComponent(file)}`,
+                            downloadUrl: `${req.protocol}://${req.get('host')}/downloads/${encodeURIComponent(file)}`
                         };
                     }
                 });
@@ -166,14 +206,12 @@ app.delete('/api/delete-all', (req, res) => {
         const files = fs.readdirSync(downloadPath);
         let deletedCount = 0;
 
-        // Delete only audio/video files
+        // Delete all files
         files.forEach(file => {
-            if (file.endsWith('.mp3') || file.endsWith('.mp4') || file.endsWith('.wav')) {
-                const filePath = path.join(downloadPath, file);
-                if (fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
-                    deletedCount++;
-                }
+            const filePath = path.join(downloadPath, file);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                deletedCount++;
             }
         });
 
