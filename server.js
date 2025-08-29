@@ -95,35 +95,50 @@ app.get('/api/files', (req, res) => {
     
     console.log('API /api/files called');
     
-    if (!fs.existsSync(downloadPath)) {
-        console.log('Downloads directory does not exist');
-        return res.json({ files: [] });
-    }
-
-    fs.readdir(downloadPath, (err, files) => {
-        if (err) {
-            console.error('Error reading downloads directory:', err);
-            return res.status(500).json({ error: 'Không thể đọc thư mục downloads' });
+    try {
+        // Tạo thư mục downloads nếu chưa tồn tại
+        if (!fs.existsSync(downloadPath)) {
+            console.log('Creating downloads directory');
+            fs.mkdirSync(downloadPath, { recursive: true });
         }
 
-        console.log('All files in downloads:', files);
+        fs.readdir(downloadPath, (err, files) => {
+            if (err) {
+                console.error('Error reading downloads directory:', err);
+                return res.status(500).json({ error: 'Không thể đọc thư mục downloads' });
+            }
 
-        const fileList = files
-            .filter(file => file.endsWith('.mp3') || file.endsWith('.mp4') || file.endsWith('.wav'))
+            console.log('All files in downloads:', files);
+
+                    const fileList = files
             .map(file => {
-                const filePath = path.join(downloadPath, file);
-                const stats = fs.statSync(filePath);
-                return {
-                    name: file,
-                    size: stats.size,
-                    date: stats.mtime,
-                    url: `/downloads/${encodeURIComponent(file)}`
-                };
-            });
+                    try {
+                        const filePath = path.join(downloadPath, file);
+                        const stats = fs.statSync(filePath);
+                        return {
+                            name: file,
+                            size: stats.size,
+                            date: stats.mtime,
+                            url: `/downloads/${encodeURIComponent(file)}`
+                        };
+                    } catch (statErr) {
+                        console.error('Error getting file stats for:', file, statErr);
+                        return {
+                            name: file,
+                            size: 0,
+                            date: new Date(),
+                            url: `/downloads/${encodeURIComponent(file)}`
+                        };
+                    }
+                });
 
-        console.log('Filtered files:', fileList);
-        res.json({ files: fileList });
-    });
+            console.log('Filtered files:', fileList);
+            res.json({ files: fileList });
+        });
+    } catch (error) {
+        console.error('Error in /api/files:', error);
+        res.status(500).json({ error: 'Lỗi server khi lấy danh sách file' });
+    }
 });
 
 // API để xóa file
