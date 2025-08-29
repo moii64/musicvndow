@@ -5,8 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
-    "install-ytdlp": "npm install -g yt-dlp"
+    "dev": "nodemon server.js"
   },
   "keywords": ["music", "downloader", "backend", "api"],
   "author": "VN Music Downloader",
