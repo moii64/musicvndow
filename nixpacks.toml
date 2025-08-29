@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["python3", "ffmpeg", "yt-dlp"]
+
+[phases.install]
+cmds = ["pip3 install yt-dlp"]
+
+[phases.build]
+cmds = ["npm ci --only=production"]
+
+[start]
+cmd = "npm start"
