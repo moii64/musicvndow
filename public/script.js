@@ -30,8 +30,8 @@ console.log('DOM Elements found:', {
 // State
 let isDownloading = false;
 
-// API Base URL - Railway backend
-const API_BASE_URL = 'https://lessmusicvndowgreater-production.up.railway.app';
+// API Base URL - Render backend (sẽ cập nhật sau khi deploy)
+const API_BASE_URL = 'https://your-render-url.onrender.com';
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
