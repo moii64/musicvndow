@@ -14,6 +14,10 @@ const batchUrls = document.getElementById('batchUrls');
 const batchDownloadBtn = document.getElementById('batchDownloadBtn');
 const loadingModal = document.getElementById('loadingModal');
 const loadingText = document.getElementById('loadingText');
+const confirmDeleteModal = document.getElementById('confirmDeleteModal');
+const confirmDeleteText = document.getElementById('confirmDeleteText');
+const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
 // Debug DOM elements
 console.log('DOM Elements found:', {
@@ -25,6 +29,9 @@ console.log('DOM Elements found:', {
 
 // State
 let isDownloading = false;
+
+// API Base URL - Railway backend
+const API_BASE_URL = 'https://lessmusicvndowgreater-production.up.railway.app';
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
@@ -71,7 +78,7 @@ function setupEventListeners() {
     
     // Delete all files
     console.log('Setting up delete all button listener...');
-    deleteAllBtn.addEventListener('click', handleDeleteAll);
+    deleteAllBtn.addEventListener('click', showDeleteConfirmModal);
     
     // Batch download
     batchDownloadBtn.addEventListener('click', handleBatchDownload);
@@ -122,7 +129,7 @@ async function handleDownload() {
     showProgress();
     
     try {
-        const response = await fetch('/api/download', {
+        const response = await fetch(`${API_BASE_URL}/api/download`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -166,7 +173,7 @@ async function handleDownloadAll() {
     
     try {
         // Create a zip file containing all files
-        const response = await fetch('/api/download-all', {
+        const response = await fetch(`${API_BASE_URL}/api/download-all`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -200,7 +207,7 @@ async function handleDownloadAll() {
     }
 }
 
-async function handleDeleteAll() {
+async function showDeleteConfirmModal() {
     console.log('Delete all button clicked!');
     
     // Get current files list
@@ -211,12 +218,31 @@ async function handleDeleteAll() {
         return;
     }
     
-    // Confirm deletion
-    const confirmMessage = `Bạn có chắc muốn xóa tất cả ${currentFiles.length} file? Hành động này không thể hoàn tác.`;
-    if (!confirm(confirmMessage)) {
-        return;
-    }
+    // Update modal text
+    confirmDeleteText.textContent = `Bạn có chắc muốn xóa tất cả ${currentFiles.length} file?`;
     
+    // Show modal
+    confirmDeleteModal.style.display = 'flex';
+    
+    // Setup event listeners
+    cancelDeleteBtn.onclick = () => {
+        confirmDeleteModal.style.display = 'none';
+    };
+    
+    confirmDeleteBtn.onclick = () => {
+        confirmDeleteModal.style.display = 'none';
+        handleDeleteAll();
+    };
+    
+    // Close modal when clicking outside
+    confirmDeleteModal.onclick = (e) => {
+        if (e.target === confirmDeleteModal) {
+            confirmDeleteModal.style.display = 'none';
+        }
+    };
+}
+
+async function handleDeleteAll() {
     // Disable button and show loading
     const originalText = deleteAllBtn.innerHTML;
     deleteAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xóa...';
@@ -224,7 +250,7 @@ async function handleDeleteAll() {
     
     try {
         // Delete all files
-        const response = await fetch('/api/delete-all', {
+        const response = await fetch(`${API_BASE_URL}/api/delete-all`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
@@ -251,7 +277,7 @@ async function handleDeleteAll() {
 
 async function getCurrentFiles() {
     try {
-        const response = await fetch('/api/files');
+        const response = await fetch(`${API_BASE_URL}/api/files`);
         const data = await response.json();
         return data.files || [];
     } catch (error) {
@@ -279,7 +305,7 @@ async function handleBatchDownload() {
     showLoadingModal('Đang tải hàng loạt...');
     
     try {
-        const response = await fetch('/api/batch-download', {
+        const response = await fetch(`${API_BASE_URL}/api/batch-download`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -311,7 +337,7 @@ async function handleBatchDownload() {
 async function loadFiles() {
     try {
         console.log('Loading files...');
-        const response = await fetch('/api/files');
+        const response = await fetch(`${API_BASE_URL}/api/files`);
         console.log('Response status:', response.status);
         
         if (!response.ok) {
@@ -371,7 +397,7 @@ async function deleteFile(filename) {
     if (!confirm('Bạn có chắc muốn xóa file này?')) return;
     
     try {
-        const response = await fetch(`/api/files/${encodeURIComponent(filename)}`, {
+        const response = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(filename)}`, {
             method: 'DELETE'
         });
         
