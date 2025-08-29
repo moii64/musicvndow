@@ -1,0 +1,11 @@
+{
+  "port": 8080,
+  "host": "localhost",
+  "root": "./public",
+  "open": "/index.html",
+  "file": "index.html",
+  "wait": 1000,
+  "mount": [],
+  "logLevel": 2,
+  "middleware": []
+}

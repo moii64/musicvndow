@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VN Music Downloader - Tải nhạc trực tuyến</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-music"></i>
+                    <span>VN Music Downloader</span>
+                </div>
+                <nav class="nav">
+                    <a href="#home" class="nav-link active">Trang chủ</a>
+                    <a href="#features" class="nav-link">Tính năng</a>
+                    <a href="#about" class="nav-link">Giới thiệu</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    Tải nhạc <span class="highlight">nhanh chóng</span> và <span class="highlight">chất lượng cao</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Hỗ trợ YouTube, Spotify, SoundCloud và nhiều nền tảng khác. 
+                    Tải nhạc miễn phí với chất lượng cao nhất.
+                </p>
+                
+                <!-- Download Form -->
+                <div class="download-form">
+                    <div class="url-input-group">
+                        <input type="url" id="urlInput" placeholder="Nhập URL video/nhạc..." class="url-input">
+                        <button id="downloadBtn" class="download-btn">
+                            <i class="fas fa-download"></i>
+                            Tải xuống
+                        </button>
+                    </div>
+                    
+                    <div class="format-options">
+                        <label class="format-label">
+                            <input type="radio" name="format" value="mp3" checked>
+                            <span class="format-text">MP3</span>
+                        </label>
+                        <label class="format-label">
+                            <input type="radio" name="format" value="mp4">
+                            <span class="format-text">MP4</span>
+                        </label>
+                        <label class="format-label">
+                            <input type="radio" name="format" value="wav">
+                            <span class="format-text">WAV</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div id="progressContainer" class="progress-container" style="display: none;">
+                    <div class="progress-bar">
+                        <div id="progressBar" class="progress-fill"></div>
+                    </div>
+                    <p id="progressText" class="progress-text">Đang tải xuống...</p>
+                </div>
+
+                <!-- Result -->
+                <div id="resultContainer" class="result-container" style="display: none;">
+                    <div id="resultMessage" class="result-message"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Tính năng nổi bật</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <h3>Tải nhanh</h3>
+                    <p>Tốc độ tải xuống nhanh chóng với công nghệ tối ưu</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-music"></i>
+                    </div>
+                    <h3>Chất lượng cao</h3>
+                    <p>Hỗ trợ tải xuống với chất lượng âm thanh tốt nhất</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-list"></i>
+                    </div>
+                    <h3>Playlist</h3>
+                    <p>Tải xuống toàn bộ playlist chỉ với một cú nhấp</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3>An toàn</h3>
+                    <p>Không lưu trữ dữ liệu, bảo mật thông tin người dùng</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Downloads Section -->
+    <section class="downloads">
+        <div class="container">
+            <div class="downloads-header">
+                <h2 class="section-title">File đã tải</h2>
+                <div class="downloads-actions">
+                    <button id="downloadAllBtn" class="download-all-btn">
+                        <i class="fas fa-download"></i>
+                        Tải tất cả
+                    </button>
+                    <button id="deleteAllBtn" class="delete-all-btn">
+                        <i class="fas fa-trash"></i>
+                        Xóa tất cả
+                    </button>
+                    <button id="refreshFiles" class="refresh-btn">
+                        <i class="fas fa-sync-alt"></i>
+                        Làm mới
+                    </button>
+                </div>
+            </div>
+            <div id="filesList" class="files-list">
+                <!-- Files will be loaded here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Batch Download Section -->
+    <section class="batch-download">
+        <div class="container">
+            <h2 class="section-title">Tải hàng loạt</h2>
+            <div class="batch-form">
+                <textarea id="batchUrls" placeholder="Nhập danh sách URL (mỗi URL một dòng)..." class="batch-textarea"></textarea>
+                <div class="batch-options">
+                    <select id="batchFormat" class="format-select">
+                        <option value="mp3">MP3</option>
+                        <option value="mp4">MP4</option>
+                        <option value="wav">WAV</option>
+                    </select>
+                    <button id="batchDownloadBtn" class="batch-download-btn">
+                        <i class="fas fa-download"></i>
+                        Tải hàng loạt
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="about" class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>VN Music Downloader</h3>
+                    <p>Giải pháp tải nhạc trực tuyến hàng đầu Việt Nam</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Liên kết</h4>
+                    <a href="#home">Trang chủ</a>
+                    <a href="#features">Tính năng</a>
+                    <a href="#about">Giới thiệu</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Hỗ trợ</h4>
+                    <p>Email: support@vnmusicdownloader.com</p>
+                    <p>Hotline: 1900-xxxx</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 VN Music Downloader. Được phát triển với ❤️ tại Việt Nam</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Loading Modal -->
+    <div id="loadingModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="loading-spinner"></div>
+            <h3>Đang xử lý...</h3>
+            <p id="loadingText">Vui lòng chờ trong giây lát</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
