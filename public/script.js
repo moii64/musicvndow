@@ -30,8 +30,8 @@ console.log('DOM Elements found:', {
 // State
 let isDownloading = false;
 
-// API Base URL - Render backend (sẽ cập nhật sau khi deploy)
-const API_BASE_URL = 'https://your-render-url.onrender.com';
+// API Base URL - Render backend
+const API_BASE_URL = 'https://musicvndow.onrender.com';
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
