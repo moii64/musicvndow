@@ -3,7 +3,7 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { exec } = require('child_process');
 const archiver = require('archiver');
 
 const app = express();
@@ -12,7 +12,6 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
 
 // Tạo thư mục downloads nếu chưa có
 const downloadPath = path.join(__dirname, 'downloads');
@@ -37,105 +36,70 @@ app.post('/api/download', async (req, res) => {
     console.log(`Downloading: ${url} in ${format} format`);
 
     // Kiểm tra yt-dlp có sẵn không
-    const ytdlpCheck = spawn('yt-dlp', ['--version']);
-    
-    ytdlpCheck.on('error', (err) => {
-        console.error('yt-dlp not found:', err);
-        return res.status(500).json({
-            success: false,
-            error: 'yt-dlp chưa được cài đặt. Vui lòng chạy: npm run install-ytdlp'
-        });
-    });
-
-    ytdlpCheck.on('close', (code) => {
-        if (code !== 0) {
+    exec('python3 -m yt_dlp --version', (error, stdout, stderr) => {
+        if (error) {
+            console.error('yt-dlp not found:', error);
             return res.status(500).json({
                 success: false,
-                error: 'yt-dlp không hoạt động. Vui lòng cài đặt lại.'
+                error: 'yt-dlp chưa được cài đặt. Vui lòng kiểm tra requirements.txt'
             });
         }
 
         // Thực hiện download
-        const args = [
-            url,
-            '-x',
-            '--audio-format', format,
-            '--audio-quality', '0',
-            '-o', path.join(downloadPath, '%(title)s.%(ext)s'),
-            '--write-thumbnail',
-            '--add-metadata',
-            '--extract-audio',
-            '--format', 'bestaudio/best'
-        ];
-
-        const ytdlp = spawn('yt-dlp', args);
-        let output = '';
-
-        ytdlp.stdout.on('data', (data) => {
-            output += data.toString();
-            console.log('yt-dlp output:', data.toString());
-        });
-
-        ytdlp.stderr.on('data', (data) => {
-            output += data.toString();
-            console.log('yt-dlp error:', data.toString());
-        });
-
-        ytdlp.on('close', (code) => {
-            if (code === 0) {
-                // Tìm file vừa download
-                fs.readdir(downloadPath, (err, files) => {
-                    if (err) {
-                        return res.status(500).json({
-                            success: false,
-                            error: 'Không thể đọc thư mục downloads'
-                        });
-                    }
-
-                    // Tìm file mới nhất
-                    const audioFiles = files.filter(file =>
-                        file.endsWith('.mp3') || file.endsWith('.mp4') || file.endsWith('.wav')
-                    );
-
-                    if (audioFiles.length > 0) {
-                        const latestFile = audioFiles[audioFiles.length - 1];
-                        const filePath = path.join(downloadPath, latestFile);
-                        const stats = fs.statSync(filePath);
-
-                        res.json({
-                            success: true,
-                            message: 'Download thành công',
-                            file: {
-                                name: latestFile,
-                                size: stats.size,
-                                url: `/downloads/${encodeURIComponent(latestFile)}`,
-                                downloadUrl: `${req.protocol}://${req.get('host')}/downloads/${encodeURIComponent(latestFile)}`
-                            },
-                            output: output
-                        });
-                    } else {
-                        res.json({
-                            success: true,
-                            message: 'Download thành công nhưng không tìm thấy file',
-                            output: output
-                        });
-                    }
-                });
-            } else {
-                res.status(500).json({
+        const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --write-thumbnail --add-metadata --extract-audio --format bestaudio/best "${url}"`;
+        
+        console.log('Executing command:', downloadCommand);
+        
+        exec(downloadCommand, (error, stdout, stderr) => {
+            if (error) {
+                console.error('yt-dlp error:', error);
+                return res.status(500).json({
                     success: false,
-                    error: `Download thất bại với code: ${code}`,
-                    output: output
+                    error: 'Lỗi khi chạy yt-dlp',
+                    details: error.message
                 });
             }
-        });
 
-        ytdlp.on('error', (err) => {
-            console.error('yt-dlp error:', err);
-            res.status(500).json({
-                success: false,
-                error: 'Lỗi khi chạy yt-dlp',
-                details: err.message
+            let output = stdout || '';
+            if (stderr) output += stderr;
+
+            // Tìm file vừa download
+            fs.readdir(downloadPath, (err, files) => {
+                if (err) {
+                    return res.status(500).json({
+                        success: false,
+                        error: 'Không thể đọc thư mục downloads'
+                    });
+                }
+
+                // Tìm file mới nhất
+                const audioFiles = files.filter(file =>
+                    file.endsWith('.mp3') || file.endsWith('.mp4') || file.endsWith('.wav')
+                );
+
+                if (audioFiles.length > 0) {
+                    const latestFile = audioFiles[audioFiles.length - 1];
+                    const filePath = path.join(downloadPath, latestFile);
+                    const stats = fs.statSync(filePath);
+
+                    res.json({
+                        success: true,
+                        message: 'Download thành công',
+                        file: {
+                            name: latestFile,
+                            size: stats.size,
+                            url: `/downloads/${encodeURIComponent(latestFile)}`,
+                            downloadUrl: `${req.protocol}://${req.get('host')}/downloads/${encodeURIComponent(latestFile)}`
+                        },
+                        output: output
+                    });
+                } else {
+                    res.json({
+                        success: true,
+                        message: 'Download thành công nhưng không tìm thấy file',
+                        output: output
+                    });
+                }
             });
         });
     });
@@ -294,39 +258,14 @@ app.post('/api/batch-download', async (req, res) => {
     for (const url of urls) {
         try {
             const result = await new Promise((resolve, reject) => {
-                const args = [
-                    url,
-                    '-x',
-                    '--audio-format', format,
-                    '--audio-quality', '0',
-                    '-o', path.join(downloadPath, '%(title)s.%(ext)s'),
-                    '--write-thumbnail',
-                    '--add-metadata',
-                    '--extract-audio',
-                    '--format', 'bestaudio/best'
-                ];
-
-                const ytdlp = spawn('yt-dlp', args);
-                let output = '';
-
-                ytdlp.stdout.on('data', (data) => {
-                    output += data.toString();
-                });
-
-                ytdlp.stderr.on('data', (data) => {
-                    output += data.toString();
-                });
-
-                ytdlp.on('close', (code) => {
-                    if (code === 0) {
-                        resolve({ status: 'success', url, output });
+                const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --write-thumbnail --add-metadata --extract-audio --format bestaudio/best "${url}"`;
+                
+                exec(downloadCommand, (error, stdout, stderr) => {
+                    if (error) {
+                        reject({ status: 'error', url, error: error.message });
                     } else {
-                        reject({ status: 'error', url, error: `Exit code: ${code}`, output });
+                        resolve({ status: 'success', url, output: stdout || stderr });
                     }
-                });
-
-                ytdlp.on('error', (err) => {
-                    reject({ status: 'error', url, error: err.message });
                 });
             });
 
