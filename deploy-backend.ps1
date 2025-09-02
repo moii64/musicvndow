@@ -15,7 +15,7 @@ git commit -m "🔧 Fix backend errors: yt-dlp detection, error handling, timeou
 
 # Push
 Write-Host "📤 Pushing to GitHub..." -ForegroundColor Yellow
-git push origin main
+git push origin master
 
 Write-Host "✅ Backend deployed to Render!" -ForegroundColor Green
 Write-Host "🔗 Check deployment at: https://dashboard.render.com" -ForegroundColor Cyan
