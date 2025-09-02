@@ -34,6 +34,45 @@ class MultiMethodDownloader {
             spotdl: this.downloadWithSpotdl.bind(this),
             scdl: this.downloadWithScdl.bind(this)
         };
+        
+        // Check cookies and dependencies on startup
+        this.checkStartupHealth();
+    }
+    
+    // Check startup health and dependencies
+    checkStartupHealth() {
+        console.log('\n🔧 Checking startup health...');
+        
+        // Check cookies.txt
+        const cookiesPath = path.join(__dirname, 'cookies.txt');
+        if (fs.existsSync(cookiesPath)) {
+            try {
+                const cookiesContent = fs.readFileSync(cookiesPath, 'utf8');
+                if (cookiesContent.trim() && cookiesContent.includes('youtube.com')) {
+                    console.log(`✅ cookies.txt found and valid (${cookiesContent.split('\n').length} lines)`);
+                } else {
+                    console.warn(`⚠️ cookies.txt exists but appears invalid or empty`);
+                }
+            } catch (err) {
+                console.warn(`⚠️ Could not read cookies.txt: ${err.message}`);
+            }
+        } else {
+            console.warn(`⚠️ cookies.txt not found - YouTube may block requests (HTTP 429)`);
+        }
+        
+        // Check pytube script
+        const pytubeScript = path.join(__dirname, 'pytube_downloader.py');
+        if (fs.existsSync(pytubeScript)) {
+            console.log(`✅ pytube_downloader.py found`);
+        } else {
+            console.warn(`⚠️ pytube_downloader.py not found - pytube method will fail`);
+        }
+        
+        // Check Python availability
+        const pythonCmd = this.checkPythonCommand();
+        console.log(`✅ Python command: ${pythonCmd}`);
+        
+        console.log('🔧 Startup health check completed\n');
     }
 
     // Detect platform and select best methods
@@ -58,14 +97,30 @@ class MultiMethodDownloader {
             const cookiesPath = path.join(__dirname, 'cookies.txt');
             const hasCookies = fs.existsSync(cookiesPath);
             
-            let command = `${pythonCmd} -m yt_dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --add-metadata --extract-audio --format bestaudio/best`;
-            
+            // Validate cookies file if it exists
             if (hasCookies) {
-                command += ` --cookies "${cookiesPath}"`;
-                console.log(`[yt-dlp] Using cookies from: ${cookiesPath}`);
+                try {
+                    const cookiesContent = fs.readFileSync(cookiesPath, 'utf8');
+                    if (!cookiesContent.trim() || cookiesContent.includes('youtube.com') === false) {
+                        console.warn(`[yt-dlp] Warning: cookies.txt appears invalid or empty`);
+                    } else {
+                        console.log(`[yt-dlp] Using cookies from: ${cookiesPath} (${cookiesContent.split('\n').length} lines)`);
+                    }
+                } catch (err) {
+                    console.warn(`[yt-dlp] Warning: Could not read cookies.txt: ${err.message}`);
+                }
             } else {
                 console.log(`[yt-dlp] No cookies.txt found - may hit rate limits`);
             }
+            
+            let command = `${pythonCmd} -m yt_dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --add-metadata --extract-audio --format bestaudio/best --retries 3 --fragment-retries 3`;
+            
+            if (hasCookies) {
+                command += ` --cookies "${cookiesPath}"`;
+            }
+            
+            // Add rate limiting protection
+            command += ` --sleep-interval 2 --max-sleep-interval 10`;
             
             command += ` "${url}"`;
 
@@ -95,9 +150,16 @@ class MultiMethodDownloader {
         return new Promise((resolve, reject) => {
             const pythonCmd = this.checkPythonCommand();
             const outputDir = path.dirname(outputPath);
+            const pytubeScript = path.join(__dirname, 'pytube_downloader.py');
+            
+            // Check if pytube script exists
+            if (!fs.existsSync(pytubeScript)) {
+                reject(new Error(`pytube script not found: ${pytubeScript}`));
+                return;
+            }
             
             // Use separate Python file to avoid syntax errors
-            const command = `${pythonCmd} pytube_downloader.py "${url}" "${outputDir}"`;
+            const command = `${pythonCmd} "${pytubeScript}" "${url}" "${outputDir}"`;
             console.log(`[pytube] Executing: ${command}`);
 
             exec(command, { timeout: 180000 }, (error, stdout, stderr) => {
@@ -118,14 +180,30 @@ class MultiMethodDownloader {
             const cookiesPath = path.join(__dirname, 'cookies.txt');
             const hasCookies = fs.existsSync(cookiesPath);
             
-            let command = `${pythonCmd} -m youtube_dl -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --add-metadata --extract-audio --format bestaudio`;
-            
+            // Validate cookies file if it exists
             if (hasCookies) {
-                command += ` --cookies "${cookiesPath}"`;
-                console.log(`[youtube-dl] Using cookies from: ${cookiesPath}`);
+                try {
+                    const cookiesContent = fs.readFileSync(cookiesPath, 'utf8');
+                    if (!cookiesContent.trim() || cookiesContent.includes('youtube.com') === false) {
+                        console.warn(`[youtube-dl] Warning: cookies.txt appears invalid or empty`);
+                    } else {
+                        console.log(`[youtube-dl] Using cookies from: ${cookiesPath} (${cookiesContent.split('\n').length} lines)`);
+                    }
+                } catch (err) {
+                    console.warn(`[youtube-dl] Warning: Could not read cookies.txt: ${err.message}`);
+                }
             } else {
                 console.log(`[youtube-dl] No cookies.txt found - may hit rate limits`);
             }
+            
+            let command = `${pythonCmd} -m youtube_dl -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --add-metadata --extract-audio --format bestaudio --retries 3`;
+            
+            if (hasCookies) {
+                command += ` --cookies "${cookiesPath}"`;
+            }
+            
+            // Add rate limiting protection
+            command += ` --sleep-interval 2 --max-sleep-interval 10`;
             
             command += ` "${url}"`;
 
