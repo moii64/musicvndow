@@ -32,7 +32,7 @@ coverage/
 Thumbs.db
 
 # Personal files
-cookies.txt
+# cookies.txt  # Không ignore cookies.txt để có thể sử dụng
 links.txt
 test.http
 test-api.ps1
