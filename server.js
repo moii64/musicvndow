@@ -61,11 +61,11 @@ class MultiMethodDownloader {
         }
         
         // Check pytube script
-        const pytubeScript = path.join(__dirname, 'pytube_downloader.py');
+        const pytubeScript = path.join(__dirname, 'pytube_downloader_v2.py');
         if (fs.existsSync(pytubeScript)) {
-            console.log(`✅ pytube_downloader.py found`);
+            console.log(`✅ pytube_downloader_v2.py found`);
         } else {
-            console.warn(`⚠️ pytube_downloader.py not found - pytube method will fail`);
+            console.warn(`⚠️ pytube_downloader_v2.py not found - pytube method will fail`);
         }
         
         // Check Python availability
@@ -150,7 +150,7 @@ class MultiMethodDownloader {
         return new Promise((resolve, reject) => {
             const pythonCmd = this.checkPythonCommand();
             const outputDir = path.dirname(outputPath);
-            const pytubeScript = path.join(__dirname, 'pytube_downloader.py');
+            const pytubeScript = path.join(__dirname, 'pytube_downloader_v2.py');
             
             // Check if pytube script exists
             if (!fs.existsSync(pytubeScript)) {
@@ -158,7 +158,7 @@ class MultiMethodDownloader {
                 return;
             }
             
-            // Use separate Python file to avoid syntax errors
+            // Use improved pytube script with yt-dlp fallback
             const command = `${pythonCmd} "${pytubeScript}" "${url}" "${outputDir}"`;
             console.log(`[pytube] Executing: ${command}`);
 
