@@ -43,6 +43,17 @@ app.post('/api/download', async (req, res) => {
 
     console.log(`Downloading: ${url} in ${format} format`);
 
+    // Kiểm tra file cookies.txt có tồn tại không
+    const cookiesPath = path.join(__dirname, 'cookies.txt');
+    if (!fs.existsSync(cookiesPath)) {
+        console.error('cookies.txt not found:', cookiesPath);
+        return res.status(500).json({
+            success: false,
+            error: 'File cookies.txt không tồn tại. Vui lòng kiểm tra cấu hình.'
+        });
+    }
+    console.log('Cookies file found:', cookiesPath);
+
     // Kiểm tra yt-dlp có sẵn không
     exec('python3 -m yt_dlp --version', (error, stdout, stderr) => {
         if (error) {
@@ -54,7 +65,7 @@ app.post('/api/download', async (req, res) => {
         }
 
         // Thực hiện download với cookies để tránh bot detection
-        const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best --cookies cookies.txt "${url}"`;
+        const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best --cookies "${cookiesPath}" "${url}"`;
         
         console.log('Executing command:', downloadCommand);
         
@@ -266,7 +277,7 @@ app.post('/api/batch-download', async (req, res) => {
     for (const url of urls) {
         try {
             const result = await new Promise((resolve, reject) => {
-                const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best --cookies cookies.txt "${url}"`;
+                const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best --cookies "${cookiesPath}" "${url}"`;
                 
                 exec(downloadCommand, (error, stdout, stderr) => {
                     if (error) {
