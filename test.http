@@ -1,0 +1,61 @@
+### 🎵 MusicVNDow Backend API Tests
+
+### 1. Health Check
+GET https://musicvndow.onrender.com/health
+
+### 2. Root Route
+GET https://musicvndow.onrender.com/
+
+### 3. Get Files List
+GET https://musicvndow.onrender.com/api/files
+
+### 4. Download Music (MP3)
+POST https://musicvndow.onrender.com/api/download
+Content-Type: application/json
+
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "format": "mp3"
+}
+
+### 5. Download Music (MP4)
+POST https://musicvndow.onrender.com/api/download
+Content-Type: application/json
+
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "format": "mp4"
+}
+
+### 6. Batch Download
+POST https://musicvndow.onrender.com/api/batch-download
+Content-Type: application/json
+
+{
+  "urls": [
+    "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "https://www.youtube.com/watch?v=9bZkp7q19f0"
+  ],
+  "format": "mp3"
+}
+
+### 7. Download All Files as ZIP
+POST https://musicvndow.onrender.com/api/download-all
+
+### 8. Delete Specific File
+DELETE https://musicvndow.onrender.com/api/files/filename.mp3
+
+### 9. Delete All Files
+DELETE https://musicvndow.onrender.com/api/delete-all
+
+### 10. Test Local Server (nếu chạy local)
+GET http://localhost:3000/health
+
+### 11. Test Local Download
+POST http://localhost:3000/api/download
+Content-Type: application/json
+
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "format": "mp3"
+}
