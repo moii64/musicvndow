@@ -62,6 +62,9 @@ class MultiMethodDownloader {
             
             if (hasCookies) {
                 command += ` --cookies "${cookiesPath}"`;
+                console.log(`[yt-dlp] Using cookies from: ${cookiesPath}`);
+            } else {
+                console.log(`[yt-dlp] No cookies.txt found - may hit rate limits`);
             }
             
             command += ` "${url}"`;
@@ -71,7 +74,15 @@ class MultiMethodDownloader {
             exec(command, { timeout: 300000 }, (error, stdout, stderr) => {
                 if (error) {
                     console.error(`[yt-dlp] Error: ${error.message}`);
-                    reject(new Error(`yt-dlp failed: ${error.message}`));
+                    
+                    // Check for specific error types
+                    if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
+                        reject(new Error(`yt-dlp rate limited (HTTP 429) - need cookies.txt or try again later`));
+                    } else if (error.message.includes('Sign in') || error.message.includes('authentication')) {
+                        reject(new Error(`yt-dlp authentication required - need cookies.txt`));
+                    } else {
+                        reject(new Error(`yt-dlp failed: ${error.message}`));
+                    }
                     return;
                 }
                 resolve({ method: 'yt-dlp', output: stdout });
@@ -104,14 +115,34 @@ class MultiMethodDownloader {
     async downloadWithYoutubeDl(url, outputPath) {
         return new Promise((resolve, reject) => {
             const pythonCmd = this.checkPythonCommand();
-            const command = `${pythonCmd} -m youtube_dl -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --add-metadata --extract-audio --format bestaudio "${url}"`;
+            const cookiesPath = path.join(__dirname, 'cookies.txt');
+            const hasCookies = fs.existsSync(cookiesPath);
+            
+            let command = `${pythonCmd} -m youtube_dl -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --add-metadata --extract-audio --format bestaudio`;
+            
+            if (hasCookies) {
+                command += ` --cookies "${cookiesPath}"`;
+                console.log(`[youtube-dl] Using cookies from: ${cookiesPath}`);
+            } else {
+                console.log(`[youtube-dl] No cookies.txt found - may hit rate limits`);
+            }
+            
+            command += ` "${url}"`;
 
             console.log(`[youtube-dl] Executing: ${command}`);
 
             exec(command, { timeout: 300000 }, (error, stdout, stderr) => {
                 if (error) {
                     console.error(`[youtube-dl] Error: ${error.message}`);
-                    reject(new Error(`youtube-dl failed: ${error.message}`));
+                    
+                    // Check for specific error types
+                    if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
+                        reject(new Error(`youtube-dl rate limited (HTTP 429) - need cookies.txt or try again later`));
+                    } else if (error.message.includes('Sign in') || error.message.includes('authentication')) {
+                        reject(new Error(`youtube-dl authentication required - need cookies.txt`));
+                    } else {
+                        reject(new Error(`youtube-dl failed: ${error.message}`));
+                    }
                     return;
                 }
                 resolve({ method: 'youtube-dl', output: stdout });
@@ -170,7 +201,10 @@ class MultiMethodDownloader {
         console.log(`[MultiDownloader] Platform detected: ${url.includes('youtube') ? 'YouTube' : url.includes('spotify') ? 'Spotify' : url.includes('soundcloud') ? 'SoundCloud' : 'Other'}`);
         console.log(`[MultiDownloader] Using methods: ${methods.join(', ')}`);
 
-        // Try methods sequentially with retry logic
+        // Try methods sequentially with smart fallback logic
+        let lastError = null;
+        let rateLimitCount = 0;
+        
         for (const methodName of methods) {
             try {
                 console.log(`[MultiDownloader] Trying ${methodName}...`);
@@ -179,23 +213,62 @@ class MultiMethodDownloader {
                 return result;
             } catch (error) {
                 console.error(`[MultiDownloader] ${methodName} failed: ${error.message}`);
+                lastError = error;
                 
-                // If it's a rate limit, bot detection, or authentication issues, try next method immediately
-                if (error.message.includes('429') || 
-                    error.message.includes('bot') || 
-                    error.message.includes('Sign in') ||
-                    error.message.includes('authentication')) {
-                    console.log(`[MultiDownloader] Rate limit/bot detection/authentication, trying next method...`);
+                // Check for specific error types
+                const isRateLimit = error.message.includes('429') || error.message.includes('Too Many Requests');
+                const isAuthRequired = error.message.includes('Sign in') || error.message.includes('authentication');
+                const isBotDetection = error.message.includes('bot') || error.message.includes('captcha');
+                
+                if (isRateLimit) {
+                    rateLimitCount++;
+                    console.log(`[MultiDownloader] Rate limit detected (${rateLimitCount}/${methods.length}) - trying next method immediately`);
+                    
+                    // If all methods hit rate limit, provide helpful message
+                    if (rateLimitCount === methods.length) {
+                        console.log(`[MultiDownloader] All methods hit rate limits - suggesting cookies.txt`);
+                    }
+                    continue;
+                }
+                
+                if (isAuthRequired) {
+                    console.log(`[MultiDownloader] Authentication required - trying next method (pytube may work without auth)`);
+                    continue;
+                }
+                
+                if (isBotDetection) {
+                    console.log(`[MultiDownloader] Bot detection - trying next method immediately`);
                     continue;
                 }
                 
                 // For other errors, wait a bit before trying next method
+                console.log(`[MultiDownloader] Generic error, waiting 1s before next method...`);
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
 
-        // If all methods failed, throw comprehensive error
-        throw new Error(`All download methods failed for URL: ${url}. Please try again later or use a different URL.`);
+        // If all methods failed, provide comprehensive error with suggestions
+        let errorMessage = `All download methods failed for URL: ${url}. `;
+        
+        if (rateLimitCount > 0) {
+            errorMessage += `\n\n🔴 Rate Limit Issues (${rateLimitCount}/${methods.length} methods):`;
+            errorMessage += `\n• YouTube is blocking requests due to too many downloads`;
+            errorMessage += `\n• Solution: Upload cookies.txt file to bypass rate limits`;
+            errorMessage += `\n• Or wait 1-2 hours before trying again`;
+        }
+        
+        if (lastError && lastError.message.includes('pytube')) {
+            errorMessage += `\n\n🟡 pytube Error:`;
+            errorMessage += `\n• pytube failed: ${lastError.message}`;
+            errorMessage += `\n• This method doesn't require cookies but may have other issues`;
+        }
+        
+        errorMessage += `\n\n💡 Recommendations:`;
+        errorMessage += `\n• Check if cookies.txt exists in the server directory`;
+        errorMessage += `\n• Try a different YouTube URL`;
+        errorMessage += `\n• Wait before retrying (rate limits are temporary)`;
+        
+        throw new Error(errorMessage);
     }
 }
 
@@ -204,14 +277,59 @@ const downloader = new MultiMethodDownloader();
 
 // Routes
 app.get('/health', (req, res) => {
+    const cookiesPath = path.join(__dirname, 'cookies.txt');
+    const hasCookies = fs.existsSync(cookiesPath);
+    
     res.json({
         status: 'OK',
         timestamp: new Date().toISOString(),
         downloadsPath: downloadsPath,
         downloadsExists: fs.existsSync(downloadsPath),
         uploadsPath: uploadsPath,
-        uploadsExists: fs.existsSync(uploadsPath)
+        uploadsExists: fs.existsSync(uploadsPath),
+        cookies: {
+            exists: hasCookies,
+            path: hasCookies ? cookiesPath : null,
+            status: hasCookies ? 'Available - Rate limits should be bypassed' : 'Missing - May hit rate limits'
+        }
     });
+});
+
+// Cookies status endpoint
+app.get('/api/cookies-status', (req, res) => {
+    const cookiesPath = path.join(__dirname, 'cookies.txt');
+    const hasCookies = fs.existsSync(cookiesPath);
+    
+    if (hasCookies) {
+        const stats = fs.statSync(cookiesPath);
+        res.json({
+            status: 'available',
+            message: 'cookies.txt found - rate limits should be bypassed',
+            path: cookiesPath,
+            size: stats.size,
+            lastModified: stats.mtime,
+            recommendations: [
+                'Cookies are available - yt-dlp and youtube-dl should work without rate limits',
+                'If you still get 429 errors, cookies may be expired - try updating them'
+            ]
+        });
+    } else {
+        res.json({
+            status: 'missing',
+            message: 'cookies.txt not found - may hit rate limits',
+            recommendations: [
+                'Export cookies from Chrome/Firefox using extensions like "Get cookies.txt"',
+                'Upload cookies.txt to the server root directory',
+                'pytube method may still work without cookies (no rate limits)',
+                'Wait 1-2 hours between download attempts if rate limited'
+            ],
+            help: {
+                chrome: 'Install "Get cookies.txt" extension, go to YouTube, export cookies',
+                firefox: 'Use "cookies.txt" extension or manual export',
+                manual: 'Create cookies.txt with Netscape format in server directory'
+            }
+        });
+    }
 });
 
 // Download endpoint
