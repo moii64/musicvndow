@@ -80,6 +80,7 @@ uploads/
 downloads/
 cookies*.txt
 *.py
+!pytube_downloader.py
 requirements.txt
 render.yaml
 start-servers.*
