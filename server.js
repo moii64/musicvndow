@@ -30,6 +30,26 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Kiểm tra yt-dlp có sẵn không
+function checkYtDlp() {
+    return new Promise((resolve, reject) => {
+        exec('python3 -m yt_dlp --version', (error, stdout, stderr) => {
+            if (error) {
+                // Thử với python thay vì python3
+                exec('python -m yt_dlp --version', (error2, stdout2, stderr2) => {
+                    if (error2) {
+                        reject(new Error('yt-dlp chưa được cài đặt. Vui lòng kiểm tra requirements.txt'));
+                    } else {
+                        resolve('python');
+                    }
+                });
+            } else {
+                resolve('python3');
+            }
+        });
+    });
+}
+
 // API để download từ URL
 app.post('/api/download', async (req, res) => {
     const { url, format = 'mp3' } = req.body;
@@ -43,39 +63,34 @@ app.post('/api/download', async (req, res) => {
 
     console.log(`Downloading: ${url} in ${format} format`);
 
-    // Kiểm tra file cookies.txt có tồn tại không
-    const cookiesPath = path.join(__dirname, 'cookies.txt');
-    if (!fs.existsSync(cookiesPath)) {
-        console.error('cookies.txt not found:', cookiesPath);
-        return res.status(500).json({
-            success: false,
-            error: 'File cookies.txt không tồn tại. Vui lòng kiểm tra cấu hình.'
-        });
-    }
-    console.log('Cookies file found:', cookiesPath);
+    try {
+        // Kiểm tra yt-dlp trước
+        const pythonCommand = await checkYtDlp();
+        console.log(`Using ${pythonCommand} for yt-dlp`);
 
-    // Kiểm tra yt-dlp có sẵn không
-    exec('python3 -m yt_dlp --version', (error, stdout, stderr) => {
-        if (error) {
-            console.error('yt-dlp not found:', error);
-            return res.status(500).json({
-                success: false,
-                error: 'yt-dlp chưa được cài đặt. Vui lòng kiểm tra requirements.txt'
-            });
+        // Kiểm tra file cookies.txt có tồn tại không
+        const cookiesPath = path.join(__dirname, 'cookies.txt');
+        if (!fs.existsSync(cookiesPath)) {
+            console.warn('cookies.txt not found, proceeding without cookies');
+        } else {
+            console.log('Cookies file found:', cookiesPath);
         }
 
-        // Thực hiện download với cookies để tránh bot detection
-        const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best --cookies "${cookiesPath}" "${url}"`;
+        // Thực hiện download
+        const downloadCommand = cookiesPath && fs.existsSync(cookiesPath)
+            ? `${pythonCommand} -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best --cookies "${cookiesPath}" "${url}"`
+            : `${pythonCommand} -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best "${url}"`;
         
         console.log('Executing command:', downloadCommand);
         
-        exec(downloadCommand, (error, stdout, stderr) => {
+        exec(downloadCommand, { timeout: 300000 }, (error, stdout, stderr) => {
             if (error) {
                 console.error('yt-dlp error:', error);
                 return res.status(500).json({
                     success: false,
                     error: 'Lỗi khi chạy yt-dlp',
-                    details: error.message
+                    details: error.message,
+                    command: downloadCommand
                 });
             }
 
@@ -121,7 +136,14 @@ app.post('/api/download', async (req, res) => {
                 }
             });
         });
-    });
+
+    } catch (error) {
+        console.error('Setup error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
 // API để lấy danh sách file
@@ -201,12 +223,19 @@ app.delete('/api/files/:filename', (req, res) => {
 });
 
 // API để xóa tất cả file
-app.delete('/api/delete-all', (req, res) => {
+app.delete('/api/files', (req, res) => {
     fs.readdir(downloadPath, (err, files) => {
         if (err) {
             return res.status(500).json({
                 success: false,
                 error: 'Không thể đọc thư mục downloads'
+            });
+        }
+
+        if (files.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Không có file nào để xóa'
             });
         }
 
@@ -272,32 +301,43 @@ app.post('/api/batch-download', async (req, res) => {
         });
     }
 
-    const results = [];
+    try {
+        const pythonCommand = await checkYtDlp();
+        const results = [];
 
-    for (const url of urls) {
-        try {
-            const result = await new Promise((resolve, reject) => {
-                const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best --cookies "${cookiesPath}" "${url}"`;
-                
-                exec(downloadCommand, (error, stdout, stderr) => {
-                    if (error) {
-                        reject({ status: 'error', url, error: error.message });
-                    } else {
-                        resolve({ status: 'success', url, output: stdout || stderr });
-                    }
+        for (const url of urls) {
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    const cookiesPath = path.join(__dirname, 'cookies.txt');
+                    const downloadCommand = cookiesPath && fs.existsSync(cookiesPath)
+                        ? `${pythonCommand} -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best --cookies "${cookiesPath}" "${url}"`
+                        : `${pythonCommand} -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best "${url}"`;
+                    
+                    exec(downloadCommand, { timeout: 300000 }, (error, stdout, stderr) => {
+                        if (error) {
+                            reject({ status: 'error', url, error: error.message });
+                        } else {
+                            resolve({ status: 'success', url, output: stdout || stderr });
+                        }
+                    });
                 });
-            });
 
-            results.push(result);
-        } catch (error) {
-            results.push(error);
+                results.push(result);
+            } catch (error) {
+                results.push(error);
+            }
         }
-    }
 
-    res.json({
-        success: true,
-        results
-    });
+        res.json({
+            success: true,
+            results
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
 // Health check
@@ -305,7 +345,9 @@ app.get('/health', (req, res) => {
     res.json({
         status: 'OK',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        downloadsPath: downloadPath,
+        downloadsExists: fs.existsSync(downloadPath)
     });
 });
 
