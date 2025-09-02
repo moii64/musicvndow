@@ -30,8 +30,8 @@ console.log('DOM Elements found:', {
 // State
 let isDownloading = false;
 
-// API Base URL - Render backend
-const API_BASE_URL = 'https://musicvndow.onrender.com';
+// API Base URL - Local development or Render backend
+const API_BASE_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://musicvndow-backend.onrender.com';
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
@@ -113,7 +113,6 @@ async function handleDownload() {
     if (isDownloading) return;
     
     const url = urlInput.value.trim();
-    const format = document.querySelector('input[name="format"]:checked').value;
     
     if (!url) {
         showResult('Vui lòng nhập URL', 'error');
@@ -134,13 +133,13 @@ async function handleDownload() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ url, format })
+            body: JSON.stringify({ url })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            showResult('Tải xuống thành công!', 'success');
+            showResult(`Tải xuống thành công! Sử dụng ${data.method}`, 'success');
             urlInput.value = '';
             loadFiles(); // Refresh file list
         } else {
