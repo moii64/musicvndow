@@ -174,19 +174,9 @@ except Exception as e:
 
     // Check Python command (python3 or python)
     checkPythonCommand() {
-        try {
-            exec('python3 --version', (error) => {
-                if (!error) return 'python3';
-            });
-        } catch (e) {}
-        
-        try {
-            exec('python --version', (error) => {
-                if (!error) return 'python';
-            });
-        } catch (e) {}
-        
-        return 'python3'; // Default fallback
+        // Simple synchronous check - return python3 as default
+        // On Render, python3 is usually available
+        return 'python3';
     }
 
     // Main download method with parallel execution and fallback
