@@ -101,7 +101,7 @@ try:
 except Exception as e:
     print(f"Error: {str(e)}")
     exit(1)
-            `;
+            `.trim();
 
             const command = `echo '${script}' | ${pythonCmd}`;
             console.log(`[pytube] Executing pytube script`);
@@ -197,42 +197,29 @@ except Exception as e:
         console.log(`[MultiDownloader] Platform detected: ${url.includes('youtube') ? 'YouTube' : url.includes('spotify') ? 'Spotify' : url.includes('soundcloud') ? 'SoundCloud' : 'Other'}`);
         console.log(`[MultiDownloader] Using methods: ${methods.join(', ')}`);
 
-        // Try methods in parallel with fallback
-        const promises = methods.map(async (methodName) => {
+        // Try methods sequentially with retry logic
+        for (const methodName of methods) {
             try {
                 console.log(`[MultiDownloader] Trying ${methodName}...`);
                 const result = await this.methods[methodName](url, outputPath);
                 console.log(`[MultiDownloader] ${methodName} succeeded!`);
-                return { success: true, method: methodName, result };
+                return result;
             } catch (error) {
                 console.error(`[MultiDownloader] ${methodName} failed: ${error.message}`);
-                return { success: false, method: methodName, error: error.message };
-            }
-        });
-
-        try {
-            const results = await Promise.allSettled(promises);
-            
-            // Find first successful result
-            for (const result of results) {
-                if (result.status === 'fulfilled' && result.value.success) {
-                    console.log(`[MultiDownloader] Download successful with ${result.value.method}`);
-                    return result.value.result;
+                
+                // If it's a rate limit or bot detection, try next method immediately
+                if (error.message.includes('429') || error.message.includes('bot')) {
+                    console.log(`[MultiDownloader] Rate limit/bot detection, trying next method...`);
+                    continue;
                 }
+                
+                // For other errors, wait a bit before trying next method
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
-
-            // If all methods failed, throw error
-            const errors = results
-                .filter(r => r.status === 'fulfilled' && !r.value.success)
-                .map(r => `${r.value.method}: ${r.value.error}`)
-                .join('; ');
-            
-            throw new Error(`All download methods failed: ${errors}`);
-            
-        } catch (error) {
-            console.error(`[MultiDownloader] All methods failed: ${error.message}`);
-            throw error;
         }
+
+        // If all methods failed, throw comprehensive error
+        throw new Error(`All download methods failed for URL: ${url}. Please try again later or use a different URL.`);
     }
 }
 
@@ -279,16 +266,18 @@ app.post('/api/download', async (req, res) => {
             
             res.json({
                 success: true,
-                message: `Download successful using ${result.method}`,
+                message: `Download successful using ${result.method || 'multi-method system'}`,
                 filename: downloadedFile,
                 size: stats.size,
-                method: result.method
+                method: result.method || 'multi-method',
+                platform: url.includes('youtube') ? 'YouTube' : url.includes('spotify') ? 'Spotify' : url.includes('soundcloud') ? 'SoundCloud' : 'Other'
             });
         } else {
             res.json({
                 success: true,
-                message: `Download successful using ${result.method}`,
-                method: result.method
+                message: `Download successful using ${result.method || 'multi-method system'}`,
+                method: result.method || 'multi-method',
+                platform: url.includes('youtube') ? 'YouTube' : url.includes('spotify') ? 'Spotify' : url.includes('soundcloud') ? 'SoundCloud' : 'Other'
             });
         }
         
