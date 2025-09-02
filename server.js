@@ -54,7 +54,7 @@ app.post('/api/download', async (req, res) => {
         }
 
         // Thực hiện download
-        const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --write-thumbnail --add-metadata --extract-audio --format bestaudio/best "${url}"`;
+        const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best "${url}"`;
         
         console.log('Executing command:', downloadCommand);
         
@@ -266,7 +266,7 @@ app.post('/api/batch-download', async (req, res) => {
     for (const url of urls) {
         try {
             const result = await new Promise((resolve, reject) => {
-                const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --write-thumbnail --add-metadata --extract-audio --format bestaudio/best "${url}"`;
+                const downloadCommand = `python3 -m yt_dlp -x --audio-format ${format} --audio-quality 0 -o "${path.join(downloadPath, '%(title)s.%(ext)s')}" --add-metadata --extract-audio --format bestaudio/best "${url}"`;
                 
                 exec(downloadCommand, (error, stdout, stderr) => {
                     if (error) {
