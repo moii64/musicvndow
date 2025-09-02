@@ -1,9 +1,13 @@
-# Core dependencies for MusicVNDow Backend
+# Core dependencies for MusicVNDow Backend - Multi-Method Download System
 yt-dlp>=2023.12.30
+pytube>=15.0.0
+youtube-dl>=2021.12.17
+spotdl>=4.2.0
+scdl>=2.3.0
 requests>=2.31.0
 
-# Optional: FFmpeg for audio conversion (if not system-installed)
-# ffmpeg-python>=0.2.0
+# Audio processing
+ffmpeg-python>=0.2.0
 
-# Development dependencies
-# python-dotenv>=1.0.0
+# Additional utilities
+mutagen>=1.47.0
