@@ -22,6 +22,24 @@ if (!fs.existsSync(downloadPath)) {
 // Serve static files từ downloads
 app.use('/downloads', express.static(downloadPath));
 
+// Route chính để tránh lỗi 500
+app.get('/', (req, res) => {
+    res.json({
+        message: '🎵 MusicVNDow Backend đang chạy!',
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        endpoints: {
+            health: '/health',
+            files: '/api/files',
+            download: '/api/download',
+            delete: '/api/files/:filename',
+            deleteAll: '/api/delete-all',
+            downloadAll: '/api/download-all',
+            batchDownload: '/api/batch-download'
+        }
+    });
+});
+
 // API để download từ URL
 app.post('/api/download', async (req, res) => {
     const { url, format = 'mp3' } = req.body;
