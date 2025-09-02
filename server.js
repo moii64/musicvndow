@@ -83,28 +83,11 @@ class MultiMethodDownloader {
     async downloadWithPytube(url, outputPath) {
         return new Promise((resolve, reject) => {
             const pythonCmd = this.checkPythonCommand();
-            const script = `
-import pytube
-import os
-try:
-    yt = pytube.YouTube("${url}")
-    audio = yt.streams.filter(only_audio=True).first()
-    if audio:
-        filename = audio.download(output_path="${path.dirname(outputPath)}")
-        # Rename to .mp3
-        base, ext = os.path.splitext(filename)
-        new_file = base + '.mp3'
-        os.rename(filename, new_file)
-        print(f"Downloaded: {new_file}")
-    else:
-        print("No audio stream found")
-except Exception as e:
-    print(f"Error: {str(e)}")
-    exit(1)
-            `.trim();
-
-            const command = `echo '${script}' | ${pythonCmd}`;
-            console.log(`[pytube] Executing pytube script`);
+            const outputDir = path.dirname(outputPath);
+            
+            // Use separate Python file to avoid syntax errors
+            const command = `${pythonCmd} pytube_downloader.py "${url}" "${outputDir}"`;
+            console.log(`[pytube] Executing: ${command}`);
 
             exec(command, { timeout: 180000 }, (error, stdout, stderr) => {
                 if (error) {
@@ -197,9 +180,12 @@ except Exception as e:
             } catch (error) {
                 console.error(`[MultiDownloader] ${methodName} failed: ${error.message}`);
                 
-                // If it's a rate limit or bot detection, try next method immediately
-                if (error.message.includes('429') || error.message.includes('bot')) {
-                    console.log(`[MultiDownloader] Rate limit/bot detection, trying next method...`);
+                // If it's a rate limit, bot detection, or authentication issues, try next method immediately
+                if (error.message.includes('429') || 
+                    error.message.includes('bot') || 
+                    error.message.includes('Sign in') ||
+                    error.message.includes('authentication')) {
+                    console.log(`[MultiDownloader] Rate limit/bot detection/authentication, trying next method...`);
                     continue;
                 }
                 
